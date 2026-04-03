@@ -3,12 +3,49 @@ import {
   SequenceNodeBuilder,
 } from '@jshookmcp/extension-sdk/workflow';
 
-const workflowId = 'workflow.qwen-mail-open-latest.v1';
+// =====================================================
+// Workflow 1: Qwen Mail Activate Link Extractor
+// =====================================================
 
-export default createWorkflow(workflowId, 'Qwen Mail Open Latest')
-  .description(
-    'Navigate mailbox, refresh, and open latest Qwen-related mail item if present.',
-  )
+const activateWorkflowId = 'workflow.qwen-mail-activate.v1';
+
+export const qwenMailActivate = createWorkflow(activateWorkflowId, 'Qwen Mail Activate')
+  .description('Open temp mailbox, refresh inbox, and extract Qwen activation/verify links.')
+  .tags(['workflow', 'qwen', 'mail', 'activate'])
+  .timeoutMs(3 * 60_000)
+  .defaultMaxConcurrency(1)
+  .buildGraph(() => {
+    const root = new SequenceNodeBuilder('qwen-mail-activate-root');
+
+    root
+      .tool('open-mailbox', 'page_navigate', {
+        input: {
+          url: 'https://www.linshiyouxiang.net',
+        },
+      })
+      .tool('refresh-inbox', 'page_press_key', {
+        input: { key: 'F5' },
+      })
+      .tool('wait-load', 'page_wait_for_selector', {
+        input: { selector: '.mail-list', timeout: 5000 },
+      })
+      .tool('extract-link', 'temp_mail_extract_link', {
+        config: {
+          linkPattern: '/activate',
+        },
+      });
+
+    return root;
+  });
+
+// =====================================================
+// Workflow 2: Qwen Mail Open Latest
+// =====================================================
+
+const openLatestWorkflowId = 'workflow.qwen-mail-open-latest.v1';
+
+export const qwenMailOpenLatest = createWorkflow(openLatestWorkflowId, 'Qwen Mail Open Latest')
+  .description('Navigate mailbox, refresh, and open latest Qwen-related mail item if present.')
   .tags(['workflow', 'qwen', 'mail'])
   .timeoutMs(3 * 60_000)
   .defaultMaxConcurrency(1)
@@ -19,37 +56,22 @@ export default createWorkflow(workflowId, 'Qwen Mail Open Latest')
       .tool('open-mailbox', 'page_navigate', {
         input: {
           url: 'https://www.linshiyouxiang.net',
-          waitUntil: 'networkidle',
-          timeout: 90000,
         },
       })
-      .tool('refresh-mailbox', 'page_evaluate', {
-        input: {
-          code: `(() => {
-            const btn = document.querySelector('#refresh-btn');
-            if (btn && typeof btn.click === 'function') {
-              btn.click();
-              return { refreshed: true };
-            }
-            return { refreshed: false, reason: 'refresh_button_not_found' };
-          })()`,
-        },
+      .tool('refresh-inbox', 'page_press_key', {
+        input: { key: 'F5' },
       })
-      .tool('open-qwen-mail', 'page_evaluate', {
-        input: {
-          code: `(() => {
-            const anchors = [...document.querySelectorAll('a[href]')];
-            const hit = anchors.find((a) => /qwen|active mail|activate|verify/i.test((a.textContent || '') + ' ' + (a.href || '')));
-            if (!hit) {
-              return { opened: false, reason: 'qwen_mail_not_found' };
-            }
-            const href = hit.href;
-            window.location.href = href;
-            return { opened: true, href, text: (hit.textContent || '').trim() };
-          })()`,
+      .tool('wait-load', 'page_wait_for_selector', {
+        input: { selector: '.mail-list', timeout: 5000 },
+      })
+      .tool('open-latest', 'temp_mail_open_latest', {
+        config: {
+          subjectPattern: 'qwen',
         },
       });
 
     return root;
-  })
-  .build();
+  });
+
+// Default export: first workflow for backwards compatibility
+export default qwenMailActivate;

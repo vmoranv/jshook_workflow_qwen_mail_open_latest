@@ -1,6 +1,7 @@
-name: qwen-mail-open-latest
-description: JSHook workflow for qwen-mail-open-latest
+name: qwen-mail
+description: Qwen mail operations (activate + open latest)
 author: vmoranv
 tags:
   - workflow
-  - qwen-mail-open-latest
+  - qwen
+  - mail
